@@ -2,6 +2,13 @@
 
 An ESP32-controlled 6-wheel-drive robot with two BTS7960 motor drivers, controllable over WiFi via a web dashboard, with an optional two-phone face-tracking system for autonomous following (e.g. award-distribution / chief-guest tracking use case).
 
+## Live demo
+
+| Page | Link |
+|---|---|
+| Robot Eye (Phone A — camera relay) | https://naviyagaming.github.io/robot-controlfinal-phone/ |
+| Controller (Phone B — control dashboard) | https://naviyagaming.github.io/robot-controlfinal02/ |
+
 ## Features
 
 - **6WD drivetrain** — 3 motors per side, driven by 2× BTS7960 H-bridge drivers
@@ -67,9 +74,10 @@ Visit `http://<ESP32-IP>/` in any browser on the same network — a touch-friend
 
 ### 3. Two-phone camera + control setup (optional)
 
-1. Host `web/robot_phone.html` and `web/controller_phone.html` (e.g. GitHub Pages)
-2. **Phone A** (mount on robot, rear camera facing forward): open `robot_phone.html`, allow camera access, copy the Peer ID shown
-3. **Phone B** (in your hand): open `controller_phone.html`, paste the Peer ID → **Connect Cam**, enter the ESP32 IP → **Set IP**, then drive using the D-pad while watching the live feed
+Use the hosted pages directly — no need to deploy your own copy:
+
+- **Phone A** (mount on robot, rear camera facing forward): open https://naviyagaming.github.io/robot-controlfinal-phone/, allow camera access, copy the Peer ID shown
+- **Phone B** (in your hand): open https://naviyagaming.github.io/robot-controlfinal02/, paste the Peer ID → **Connect Cam**, enter the ESP32 IP → **Set IP**, then drive using the D-pad while watching the live feed
 
 > **Note:** Both phones need a WiFi network with internet access for the initial peer handshake (WebRTC signalling). After connecting, video streams directly phone-to-phone.
 
