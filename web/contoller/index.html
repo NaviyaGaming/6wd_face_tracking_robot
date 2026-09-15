@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Robot Controller</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  :root{--bg:#0a0a0f;--panel:#12121a;--border:#1e1e2e;
+        --accent:#00c8ff;--accent2:#7c3aed;--green:#22c55e;
+        --red:#ff4060;--amber:#f59e0b;--text:#e2e8f0;--muted:#64748b;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+       min-height:100dvh;display:flex;flex-direction:column;align-items:center;
+       padding:16px;gap:11px;overflow-x:hidden}
+  h1{font-size:1.2rem;font-weight:700;letter-spacing:5px;text-transform:uppercase;
+     background:linear-gradient(90deg,var(--accent),var(--accent2));
+     -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{font-size:.65rem;letter-spacing:3px;color:var(--muted)}
+
+  /* ── connect row ── */
+  .row{display:flex;gap:8px;width:100%;max-width:400px}
+  input.ipt{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+            padding:9px 14px;color:var(--text);font-size:.82rem;outline:none;min-width:0}
+  input.ipt:focus{border-color:var(--accent)}
+  button.gbtn{background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;
+              border-radius:10px;padding:9px 16px;color:#fff;font-weight:700;
+              font-size:.78rem;cursor:pointer;white-space:nowrap}
+
+  /* ── video ── */
+  .cam-wrap{position:relative;width:100%;max-width:400px;border-radius:14px;
+            overflow:hidden;border:1px solid var(--border);background:#111;
+            aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
+  .cam-wrap video{width:100%;display:block}
+  canvas#overlay{position:absolute;top:0;left:0;width:100%;height:100%}
+  #noFeed{font-size:.7rem;color:var(--muted);letter-spacing:2px}
+  .vid-top{position:absolute;top:7px;left:7px;right:7px;
+           display:flex;justify-content:space-between;pointer-events:none;gap:6px}
+  .vbadge{background:rgba(0,0,0,.7);border:1px solid var(--border);border-radius:7px;
+          padding:3px 9px;font-size:.58rem;letter-spacing:1px}
+  .vbadge.green{border-color:var(--green);color:var(--green)}
+  .vbadge.amber{border-color:var(--amber);color:var(--amber)}
+
+  /* ── status bar ── */
+  .statusbar{display:flex;align-items:center;gap:8px;background:var(--panel);
+             border:1px solid var(--border);border-radius:999px;padding:5px 16px;
+             font-size:.7rem;letter-spacing:1px;color:var(--muted);width:100%;max-width:400px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+  .dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
+  .dot.amber{background:var(--amber);box-shadow:0 0 5px var(--amber)}
+  #cmdlabel{color:var(--text);font-weight:700;font-size:.72rem}
+
+  /* ── detection cards ── */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;width:100%;max-width:400px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 6px;text-align:center}
+  .card .lbl{font-size:.52rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+  .card .v{font-size:.82rem;font-weight:700}
+  .green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.cyan{color:var(--accent)}
+
+  /* ── pose bar ── */
+  .pose-wrap{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--border);
+             border-radius:11px;padding:10px 14px}
+  .pose-lbl{font-size:.57rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+            margin-bottom:6px;display:flex;justify-content:space-between}
+  .pose-track{width:100%;height:9px;background:#1e1e2e;border-radius:99px;position:relative}
+  .pose-zone{position:absolute;top:0;left:38%;width:24%;height:100%;
+             background:rgba(34,197,94,.15);border-radius:99px}
+  .pose-centre{position:absolute;left:50%;top:-3px;width:2px;height:15px;
+               background:var(--muted);border-radius:1px}
+  .pose-needle{position:absolute;top:0;width:9px;height:9px;border-radius:50%;
+               background:var(--accent);transform:translateX(-50%);transition:left .08s}
+
+  /* ── mode toggle ── */
+  .toggle-row{display:flex;gap:8px;width:100%;max-width:400px}
+  .tbtn{flex:1;padding:9px;border-radius:11px;border:1px solid var(--border);
+        background:var(--panel);color:var(--text);font-size:.68rem;letter-spacing:2px;
+        text-transform:uppercase;cursor:pointer;transition:all .15s}
+  .tbtn.active-face{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.08)}
+  .tbtn.active-manual{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.08)}
+
+  /* ── enroll ── */
+  .enroll-wrap{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--border);
+               border-radius:11px;padding:11px 14px}
+  .enroll-wrap h3{font-size:.62rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .ebtns{display:flex;gap:7px;flex-wrap:wrap}
+  .ebtn{background:#1e1e2e;border:1px solid var(--border);border-radius:8px;
+        padding:6px 12px;color:var(--text);font-size:.7rem;cursor:pointer}
+  .ebtn:active{background:rgba(0,200,255,.15);border-color:var(--accent)}
+  #snapCount{font-size:.62rem;color:var(--muted);margin-top:6px}
+
+  /* ── speed ── */
+  .speed-section{width:100%;max-width:400px;background:var(--panel);
+                 border:1px solid var(--border);border-radius:13px;padding:13px 16px}
+  .speed-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .speed-header span:first-child{font-size:.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted)}
+  #speedDisplay{font-size:1.2rem;font-weight:700;color:var(--accent)}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent2) calc(var(--pct)*1%),#1e1e2e calc(var(--pct)*1%))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;
+    border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);margin-top:-7px}
+
+  /* ── dpad ── */
+  .dpad{display:grid;grid-template-columns:repeat(3,72px);grid-template-rows:repeat(3,64px);gap:9px}
+  .btn{background:var(--panel);border:1px solid var(--border);border-radius:13px;color:var(--text);
+       font-size:.57rem;letter-spacing:1.5px;text-transform:uppercase;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;gap:4px;cursor:pointer;user-select:none;
+       transition:background .1s,border-color .1s,transform .08s}
+  .btn .ico{font-size:1.3rem;line-height:1}
+  .btn:active,.btn.active{background:rgba(0,200,255,.12);border-color:var(--accent);
+                           color:var(--accent);transform:scale(.94)}
+  .btn.stop-btn{border-color:rgba(255,64,96,.35);color:var(--red)}
+  .btn.stop-btn:active{background:rgba(255,64,96,.12);border-color:var(--red)}
+  .empty{pointer-events:none}
+  .dpad-disabled{opacity:.3;pointer-events:none}
+
+  .log{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--border);
+       border-radius:11px;padding:9px;font-size:.62rem;color:var(--muted);
+       height:64px;overflow-y:auto;font-family:monospace}
+  .log .ok{color:var(--green)}.log .warn{color:var(--amber)}.log .info{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>🎮 Controller</h1>
+<p class="sub">Phone B · All Detection + Control Here</p>
+
+<!-- Step 1: connect to robot phone camera -->
+<div class="row">
+  <input class="ipt" type="text" id="robotEyeId" placeholder="Paste Robot-Eye Peer ID">
+  <button class="gbtn" onclick="connectCamera()">CONNECT CAM</button>
+</div>
+
+<!-- Step 2: ESP32 IP -->
+<div class="row">
+  <input class="ipt" type="text" id="robotIP" placeholder="ESP32 IP e.g. 192.168.1.50">
+  <button class="gbtn" onclick="startTracking()">START</button>
+</div>
+
+<!-- Video from robot phone -->
+<div class="cam-wrap">
+  <span id="noFeed">Waiting for camera feed…</span>
+  <video id="remoteVideo" autoplay playsinline style="display:none"></video>
+  <canvas id="overlay"></canvas>
+  <div class="vid-top">
+    <div class="vbadge" id="vidBadge">NO FEED</div>
+    <div class="vbadge" id="lockBadge">🔍 SCANNING</div>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="statusbar">
+  <div class="dot" id="dot"></div>
+  <span id="cmdlabel">DISCONNECTED</span>
+</div>
+
+<!-- Detection info -->
+<div class="cards">
+  <div class="card"><div class="lbl">Face</div><div class="v" id="dFace">—</div></div>
+  <div class="card"><div class="lbl">Dist</div><div class="v cyan" id="dDist">—</div></div>
+  <div class="card"><div class="lbl">Pose</div><div class="v" id="dPose">—</div></div>
+  <div class="card"><div class="lbl">CMD</div><div class="v" id="dCmd">—</div></div>
+</div>
+
+<!-- Yaw bar -->
+<div class="pose-wrap">
+  <div class="pose-lbl"><span>← left</span><span>Head yaw</span><span>right →</span></div>
+  <div class="pose-track">
+    <div class="pose-zone"></div>
+    <div class="pose-centre"></div>
+    <div class="pose-needle" id="needle"></div>
+  </div>
+</div>
+
+<!-- Mode toggle -->
+<div class="toggle-row">
+  <button class="tbtn active-face" id="btnFace" onclick="setMode('face')">🧠 FACE AUTO</button>
+  <button class="tbtn" id="btnManual" onclick="setMode('manual')">🕹 MANUAL</button>
+</div>
+
+<!-- Enroll (uses robot phone video feed) -->
+<div class="enroll-wrap">
+  <h3>Enroll face — take snaps from robot camera feed</h3>
+  <div class="ebtns">
+    <button class="ebtn" onclick="captureSnap()">📸 Snap</button>
+    <button class="ebtn" onclick="trainModel()">🧠 Train</button>
+    <button class="ebtn" onclick="clearSnaps()">🗑 Clear</button>
+  </div>
+  <div id="snapCount">Snaps: 0 — take 5+ from different distances</div>
+</div>
+
+<!-- Speed -->
+<div class="speed-section">
+  <div class="speed-header"><span>Speed</span><span id="speedDisplay">60</span></div>
+  <input type="range" id="slider" min="60" max="255" value="60" style="--pct:0" oninput="onSpeed(this)">
+</div>
+
+<!-- D-pad -->
+<div class="dpad dpad-disabled" id="dpad">
+  <div class="empty"></div>
+  <button class="btn" id="bF"
+    onpointerdown="press('F',this)" onpointerup="release()" onpointerleave="release()">
+    <span class="ico">▲</span>FWD</button>
+  <div class="empty"></div>
+  <button class="btn" id="bL"
+    onpointerdown="press('L',this)" onpointerup="release()" onpointerleave="release()">
+    <span class="ico">◀</span>LEFT</button>
+  <button class="btn stop-btn"
+    onpointerdown="directCmd('S')" ontouchstart="directCmd('S')">
+    <span class="ico">■</span>STOP</button>
+  <button class="btn" id="bR"
+    onpointerdown="press('R',this)" onpointerup="release()" onpointerleave="release()">
+    <span class="ico">▶</span>RIGHT</button>
+  <div class="empty"></div>
+  <button class="btn" id="bB"
+    onpointerdown="press('B',this)" onpointerup="release()" onpointerleave="release()">
+    <span class="ico">▼</span>BACK</button>
+  <div class="empty"></div>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+// ═══════════════════ CONFIG ═══════════════════
+const OWNER_NAME     = 'Navindu';
+const MODEL_URL      = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+const FACE_W_MM      = 150;
+const FOCAL_LEN      = 600;
+const STOP_DIST      = 1.0;
+const SLOW_DIST      = 1.6;
+const SPEED_FAST     = 60;
+const SPEED_SLOW     = 85;
+const YAW_THRESH     = 18;
+const CENTRE_DEAD    = 0.15;
+const RECHECK_FRAMES = 10;
+const MAX_MISSES     = 15;
+const CONFIRM_FRAMES = 3;
+const CMD_INTERVAL   = 350;
+
+// ═══════════════════ STATE ═══════════════════
+let robotBase='', running=false, trained=false, mode='face';
+let faceMatcher=null, snapDescriptors=[], labeledDescriptors=[];
+let locked=false, lockedBox=null, missCount=0, frameCount=0, confirmCount=0;
+let lastCmd='', lastCmdTime=0, lastSentSpeed=-1, busy=false;
+let activeBtn=null;
+let peer=null;
+
+const remoteVideo = document.getElementById('remoteVideo');
+const overlay     = document.getElementById('overlay');
+const ctx         = overlay.getContext('2d');
+
+function log(msg,cls='info'){
+  const el=document.getElementById('log');
+  el.innerHTML+=`<div class="${cls}">${new Date().toLocaleTimeString()} ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+// ═══════════════════ PEERJS — RECEIVE CAMERA ═══════════════════
+function connectCamera(){
+  const rid=document.getElementById('robotEyeId').value.trim();
+  if(!rid){log('Enter Robot-Eye Peer ID','warn');return;}
+
+  peer=new Peer();
+  peer.on('open',()=>{
+    log('Peer ready — calling robot camera…');
+    // call robot phone — it answers with its camera stream
+    const call=peer.call(rid, null);
+    call.on('stream', stream=>{
+      remoteVideo.srcObject=stream;
+      remoteVideo.style.display='block';
+      document.getElementById('noFeed').style.display='none';
+      // sync overlay size once video metadata loads
+      remoteVideo.onloadedmetadata=()=>{
+        overlay.width  = remoteVideo.videoWidth;
+        overlay.height = remoteVideo.videoHeight;
+      };
+      document.getElementById('vidBadge').textContent='🟢 LIVE';
+      document.getElementById('vidBadge').className='vbadge green';
+      document.getElementById('dot').className='dot on';
+      document.getElementById('cmdlabel').textContent='CAM CONNECTED';
+      log('Camera feed live ✓','ok');
+    });
+    call.on('error', e=>log('Call error: '+e,'warn'));
+  });
+  peer.on('error',e=>log('Peer: '+e.type,'warn'));
+}
+
+// ═══════════════════ START TRACKING ═══════════════════
+async function startTracking(){
+  const ip=document.getElementById('robotIP').value.trim();
+  if(!ip){log('Enter ESP32 IP','warn');return;}
+  if(!trained){log('Enroll & train face first','warn');return;}
+  if(!remoteVideo.srcObject){log('Connect camera first','warn');return;}
+  robotBase='http://'+ip;
+  await loadModels();
+  running=true;
+  log('Face tracking started ✓','ok');
+  detectLoop();
+}
+
+// ═══════════════════ MODELS ═══════════════════
+async function loadModels(){
+  if(faceapi.nets.tinyFaceDetector.isLoaded)return;
+  log('Loading face-api models…');
+  await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+  log('Models ready ✓','ok');
+}
+
+// ═══════════════════ YAW ═══════════════════
+function getYaw(landmarks){
+  const p=landmarks.positions;
+  const eyeMid=(p[36].x+p[45].x)/2;
+  const eyeSpan=p[45].x-p[36].x;
+  return ((p[30].x-eyeMid)/(eyeSpan/2))*45;
+}
+
+// ═══════════════════ SPEED SCALING ═══════════════════
+function speedForDist(dist){
+  if(dist>=SLOW_DIST)return SPEED_FAST;
+  if(dist<=STOP_DIST)return 0;
+  const t=(dist-STOP_DIST)/(SLOW_DIST-STOP_DIST);
+  return Math.round(SPEED_SLOW+t*(SPEED_FAST-SPEED_SLOW));
+}
+
+// ═══════════════════ DETECTION LOOP ═══════════════════
+async function detectLoop(){
+  if(!running){requestAnimationFrame(detectLoop);return;}
+
+  frameCount++;
+  const opts=new faceapi.TinyFaceDetectorOptions({inputSize:608,scoreThreshold:0.35});
+
+  // run detection on the remote video element
+  const dets=await faceapi
+    .detectAllFaces(remoteVideo,opts)
+    .withFaceLandmarks(true)
+    .withFaceDescriptors();
+
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+
+  if(!dets.length){handleMiss();requestAnimationFrame(detectLoop);return;}
+
+  let ownerDet=null;
+  const doFull=(!locked)||(frameCount%RECHECK_FRAMES===0);
+
+  if(doFull){
+    // full recognition pass
+    let bestMatchDist=999;
+    for(const d of dets){
+      const boxW=d.detection.box.width;
+      const thresh=boxW>80?0.50:0.62; // lenient at distance
+      const tmpMatcher=new faceapi.FaceMatcher(labeledDescriptors,thresh);
+      const match=tmpMatcher.findBestMatch(d.descriptor);
+      const box=d.detection.box;
+      const isOwner=match.label===OWNER_NAME&&match.distance<thresh;
+      // draw box
+      ctx.strokeStyle=isOwner?'#00c8ff':'#ff4060';
+      ctx.lineWidth=2;
+      ctx.strokeRect(box.x,box.y,box.width,box.height);
+      ctx.fillStyle=isOwner?'#00c8ff':'#ff4060';
+      ctx.font='12px monospace';
+      ctx.fillText(`${match.label} ${(1-match.distance).toFixed(2)}`,box.x,box.y-5);
+      if(isOwner&&match.distance<bestMatchDist){bestMatchDist=match.distance;ownerDet=d;}
+    }
+    if(ownerDet){locked=true;lockedBox=ownerDet.detection.box;missCount=0;updateLockBadge(true);}
+    else{handleMiss();}
+  } else {
+    // lightweight track — find closest face to last known box
+    if(lockedBox){
+      let minD=Infinity;
+      for(const d of dets){
+        const b=d.detection.box;
+        const dx=(b.x+b.width/2)-(lockedBox.x+lockedBox.width/2);
+        const dy=(b.y+b.height/2)-(lockedBox.y+lockedBox.height/2);
+        const dd=Math.hypot(dx,dy);
+        if(dd<minD){minD=dd;ownerDet=d;}
+      }
+      if(ownerDet&&minD>lockedBox.width*1.5)ownerDet=null; // drifted too far
+    }
+    if(ownerDet){
+      lockedBox=ownerDet.detection.box;missCount=0;
+      const b=ownerDet.detection.box;
+      ctx.strokeStyle='#00ffcc';ctx.lineWidth=2;
+      ctx.strokeRect(b.x,b.y,b.width,b.height);
+      ctx.fillStyle='#00ffcc';ctx.font='11px monospace';
+      ctx.fillText('TRACKING',b.x,b.y-5);
+    } else {handleMiss();}
+  }
+
+  if(!locked||!ownerDet){requestAnimationFrame(detectLoop);return;}
+
+  // confirmation buffer
+  confirmCount++;
+  if(confirmCount<CONFIRM_FRAMES){sendCmd('S');requestAnimationFrame(detectLoop);return;}
+
+  const box=ownerDet.detection.box;
+  const dist=(FOCAL_LEN*FACE_W_MM)/(box.width*1000);
+  const yaw=getYaw(ownerDet.landmarks);
+  const isFacing=Math.abs(yaw)<YAW_THRESH;
+
+  // draw nose direction
+  const pts=ownerDet.landmarks.positions;
+  ctx.strokeStyle=isFacing?'#22c55e':'#f59e0b';
+  ctx.lineWidth=2;ctx.beginPath();
+  ctx.moveTo(pts[27].x,pts[27].y);ctx.lineTo(pts[30].x,pts[30].y);ctx.stroke();
+
+  // decide command
+  let cmd='S',spd=SPEED_FAST;
+  if(!isFacing){
+    cmd=yaw>0?'R':'L'; spd=SPEED_SLOW;
+  } else if(dist>STOP_DIST){
+    spd=speedForDist(dist);
+    if(spd<=0){cmd='S';}
+    else{
+      const off=(box.x+box.width/2-overlay.width/2)/overlay.width;
+      cmd=off<-CENTRE_DEAD?'L':off>CENTRE_DEAD?'R':'F';
+    }
+  } else {cmd='S';spd=0;}
+
+  updateSpeedIfNeeded(spd);
+  sendCmd(cmd);
+  updateDetectionUI(OWNER_NAME,dist,yaw,isFacing,cmd);
+
+  requestAnimationFrame(detectLoop);
+}
+
+// ═══════════════════ MISS HANDLING ═══════════════════
+function handleMiss(){
+  confirmCount=0;
+  if(++missCount>=MAX_MISSES){
+    locked=false;lockedBox=null;missCount=0;
+    updateLockBadge(false);
+    sendCmd('S');
+  }
+}
+function updateLockBadge(isLocked){
+  const el=document.getElementById('lockBadge');
+  el.textContent=isLocked?'🔒 LOCKED':'🔍 SCANNING';
+  el.className='vbadge'+(isLocked?' green':'');
+}
+
+// ═══════════════════ SEND TO ESP32 ═══════════════════
+function sendCmd(c){
+  if(mode!=='face')return; // manual mode blocks face commands
+  const now=Date.now();
+  if(c===lastCmd&&now-lastCmdTime<CMD_INTERVAL)return;
+  lastCmd=c;lastCmdTime=now;
+  document.getElementById('cmdlabel').textContent=
+    {F:'▲ FORWARD',B:'▼ BACK',L:'◀ CIRCLE L',R:'▶ CIRCLE R',S:'■ STOP'}[c]||c;
+  if(robotBase)fetch(robotBase+'/'+c).catch(()=>{});
+}
+function directCmd(c){
+  // bypasses mode check — for stop button only
+  lastCmd=c;lastCmdTime=Date.now();
+  document.getElementById('cmdlabel').textContent='■ STOP';
+  if(robotBase)fetch(robotBase+'/'+c).catch(()=>{});
+}
+function updateSpeedIfNeeded(spd){
+  if(spd===lastSentSpeed)return;
+  lastSentSpeed=spd;
+  if(robotBase)fetch(robotBase+'/SPD?v='+spd).catch(()=>{});
+}
+
+// ═══════════════════ MODE SWITCH ═══════════════════
+function setMode(m){
+  mode=m;
+  document.getElementById('btnFace').className  ='tbtn'+(m==='face'?' active-face':'');
+  document.getElementById('btnManual').className ='tbtn'+(m==='manual'?' active-manual':'');
+  document.getElementById('dpad').className      ='dpad'+(m==='manual'?'':' dpad-disabled');
+  if(m==='face') log('Mode: FACE AUTO','ok');
+  else { log('Mode: MANUAL','ok'); directCmd('S'); }
+}
+
+// ═══════════════════ MANUAL DPAD ═══════════════════
+function press(c,btn){
+  if(activeBtn)activeBtn.classList.remove('active');
+  activeBtn=btn;btn.classList.add('active');
+  document.getElementById('cmdlabel').textContent=
+    {F:'▲ FORWARD',B:'▼ BACK',L:'◀ LEFT',R:'▶ RIGHT'}[c]||c;
+  if(robotBase)fetch(robotBase+'/'+c).catch(()=>{});
+}
+function release(){
+  if(activeBtn){activeBtn.classList.remove('active');activeBtn=null;}
+  directCmd('S');
+}
+
+// ═══════════════════ SPEED SLIDER ═══════════════════
+function onSpeed(el){
+  const v=parseInt(el.value);
+  el.style.setProperty('--pct',Math.round((v-60)/(255-60)*100));
+  document.getElementById('speedDisplay').textContent=v;
+  if(!busy){
+    busy=true;
+    if(robotBase)fetch(robotBase+'/SPD?v='+v).catch(()=>{});
+    setTimeout(()=>busy=false,200);
+  }
+}
+
+// ═══════════════════ ENROLL from remote video ═══════════════════
+async function captureSnap(){
+  if(!faceapi.nets.tinyFaceDetector.isLoaded)await loadModels();
+  if(!remoteVideo.srcObject){log('Connect camera first','warn');return;}
+  const opts=new faceapi.TinyFaceDetectorOptions({inputSize:608,scoreThreshold:0.35});
+  const det=await faceapi.detectSingleFace(remoteVideo,opts)
+                          .withFaceLandmarks(true).withFaceDescriptor();
+  if(!det){log('No face in frame','warn');return;}
+  snapDescriptors.push(det.descriptor);
+  document.getElementById('snapCount').textContent=
+    `Snaps: ${snapDescriptors.length} ${snapDescriptors.length<5?'— take more!':'— ready to train ✓'}`;
+  log(`Snap ${snapDescriptors.length} captured`,'ok');
+}
+async function trainModel(){
+  if(snapDescriptors.length<3){log('Need at least 3 snaps','warn');return;}
+  labeledDescriptors=[new faceapi.LabeledFaceDescriptors(OWNER_NAME,snapDescriptors)];
+  faceMatcher=new faceapi.FaceMatcher(labeledDescriptors,0.50);
+  trained=true;
+  log(`Trained with ${snapDescriptors.length} snaps ✓`,'ok');
+}
+function clearSnaps(){
+  snapDescriptors=[];labeledDescriptors=[];trained=false;faceMatcher=null;
+  document.getElementById('snapCount').textContent='Snaps: 0 — take at least 5';
+  log('Cleared');
+}
+
+// ═══════════════════ UI ═══════════════════
+function updateDetectionUI(face,dist,yaw,isFacing,cmd){
+  const fEl=document.getElementById('dFace');
+  fEl.textContent=face; fEl.className='v green';
+  document.getElementById('dDist').textContent=dist.toFixed(2)+'m';
+  const pEl=document.getElementById('dPose');
+  pEl.textContent=isFacing?'Front ✓':(yaw>0?`R ${Math.abs(yaw).toFixed(0)}°`:`L ${Math.abs(yaw).toFixed(0)}°`);
+  pEl.className='v '+(isFacing?'green':'amber');
+  const cEl=document.getElementById('dCmd');
+  cEl.textContent={F:'▲ FWD',B:'▼ BACK',L:'◀ L',R:'▶ R',S:'■ STP'}[cmd]||cmd;
+  cEl.className='v '+(cmd==='S'?'red':'cyan');
+  const pct=Math.min(100,Math.max(0,((yaw+45)/90)*100));
+  document.getElementById('needle').style.left=pct+'%';
+}
+</script>
+</body>
+</html>
