@@ -1,5 +1,6 @@
 # 6WD Face-Tracking Robot
 
+
 An ESP32-controlled 6-wheel-drive robot with two BTS7960 motor drivers, controllable over WiFi via a web dashboard, with an optional two-phone face-tracking system for autonomous following (e.g. award-distribution / chief-guest tracking use case).
 
 ## Live demo
