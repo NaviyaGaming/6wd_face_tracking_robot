@@ -76,8 +76,8 @@ Visit `http://<ESP32-IP>/` in any browser on the same network — a touch-friend
 
 Use the hosted pages directly — no need to deploy your own copy:
 
-- **Phone A** (mount on robot, rear camera facing forward): open https://naviyagaming.github.io/robot-controlfinal-phone/, allow camera access, copy the Peer ID shown
-- **Phone B** (in your hand): open https://naviyagaming.github.io/robot-controlfinal02/, paste the Peer ID → **Connect Cam**, enter the ESP32 IP → **Set IP**, then drive using the D-pad while watching the live feed
+- **Phone A** (mount on robot, rear camera facing forward): open https://github.com/NaviyaGaming/6wd_face_tracking_robot/blob/main/web/robot/index.html, allow camera access, copy the Peer ID shown
+- **Phone B** (in your hand): open https://github.com/NaviyaGaming/6wd_face_tracking_robot/blob/main/web/contoller/index.html, paste the Peer ID → **Connect Cam**, enter the ESP32 IP → **Set IP**, then drive using the D-pad while watching the live feed
 
 > **Note:** Both phones need a WiFi network with internet access for the initial peer handshake (WebRTC signalling). After connecting, video streams directly phone-to-phone.
 
