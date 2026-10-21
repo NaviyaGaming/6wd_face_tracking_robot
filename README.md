@@ -7,7 +7,7 @@ An ESP32-controlled 6-wheel-drive robot with two BTS7960 motor drivers, controll
 | Page | Link |
 |---|---|
 | Robot Eye (Phone A — camera relay) | https://naviyagaming.github.io/robot-controlfinal-phone/ |
-| Controller (Phone B — control dashboard) | https://naviyagaming.github.io/robot-controlfinal02/ |
+| Controller (Phone B — control dashboard) | https://github.com/NaviyaGaming/6wd_face_tracking_robot/blob/main/web/contoller/index.html |
 
 ## Features
 
